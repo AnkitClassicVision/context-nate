@@ -60,3 +60,11 @@ Revenue: ~$1.3M annualized. 60+ remote Filipino agents. 3-person tech team.
 - Never embed GitHub tokens in git remote URLs. Use SSH or credential helpers.
 - Run CloudFormation drift detection monthly.
 - All repos must have CI that runs lint + build before merge to main.
+
+## Full Operational Playbook
+For deeper context beyond these rules, query the **mybcat-playbook MCP** (`search_playbook`, `get_playbook_doc`, `list_playbook`):
+- Security audit with findings, remediation steps, and fix prompts
+- Business context: clients, team, services, tech stack, compliance posture
+- Task decomposition templates for safely making risky changes
+- Engineer onboarding briefing for new contractors or team members
+- Nate's operational frameworks: blast radius discipline, scar tissue rules, 80-20 threshold
