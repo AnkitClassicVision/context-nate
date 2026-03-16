@@ -1,0 +1,11 @@
+*** Begin Patch
+*** Update File: /home/ankit114/.claude/skills/skill-creator/SKILL.md
+@@
+ After initialization, customize or remove the generated SKILL.md and example files as needed.
++
++### MyBCAT Repo Guidelines Enforcement
++
++When creating a new repo under `/mnt/d_drive/repos/` for MyBCAT infrastructure or client operations, run `/mnt/d_drive/repos/context_nate/mybcat-sync-guidelines.sh` immediately after repo creation. This injects the universal MyBCAT guidelines into `CLAUDE.md` and `AGENTS.md` so every new repo starts with the same operating and security constraints.
++
++Treat this as part of repo bootstrap, before handing the repo to other agents or starting substantive implementation.
+*** End Patch

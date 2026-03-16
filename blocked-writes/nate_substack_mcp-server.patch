@@ -1,0 +1,162 @@
+*** Begin Patch
+*** Update File: /mnt/d_drive/repos/nate_substack_mcp/server.py
+@@
+-Also serves MyBCAT context outputs (applied prompt kits, frameworks,
+-business context) from a context_outputs table.
+-
+ URL: https://rag.mybcat.com/nate-substack/sse?key=YOUR_SECRET_KEY
+ Port: 8766 (reverse-proxied by Caddy at /nate-substack/)
+ """
+@@
+ mcp = FastMCP(
+     "nate-substack",
+     instructions=(
+         "Search Nate's Newsletter posts, prompt kits, and linked guides. "
+         "Use search_posts for general topic searches, search_prompts to find "
+         "prompt kits by use-case, search_linked_content for referenced articles, "
+-        "get_post to retrieve a full post, and list_posts to browse by date/tag. "
+-        "Also search applied context outputs (MyBCAT prompt kit applications, "
+-        "frameworks, business context) with search_context and get_context."
++        "get_post to retrieve a full post, and list_posts to browse by date/tag."
+     ),
+     transport_security=transport_settings,
+ )
+@@
+-# ─── Tools: Context Outputs (Applied Prompt Kits) ────────────────────────────
+-
+-
+-@mcp.tool()
+-def search_context(query: str, category: Optional[str] = None, limit: int = 5) -> list:
+-    """
+-    Semantic search across MyBCAT context outputs — applied prompt kits,
+-    business context, frameworks, and universal rules.
+-
+-    Args:
+-        query: Natural language search query (e.g. "security audit findings",
+-               "MyBCAT tech stack", "blast radius discipline")
+-        category: Optional filter — "output", "reference", "prompt", or "rules"
+-        limit: Max results (default 5)
+-
+-    Returns:
+-        List of {title, category, filename, score, excerpt} dicts
+-    """
+-    vec = embed(query)
+-    conditions = ["embedding IS NOT NULL"]
+-    params = []
+-
+-    if category:
+-        conditions.append("category = %s")
+-        params.append(category)
+-
+-    where = " AND ".join(conditions)
+-
+-    sql = f"""
+-        SELECT title, category, filename,
+-               1 - (embedding <=> %s::vector) AS score,
+-               LEFT(content_text, 800) AS excerpt
+-        FROM context_outputs
+-        WHERE {where}
+-        ORDER BY embedding <=> %s::vector
+-        LIMIT %s
+-    """
+-    params_full = [vec] + params + [vec, limit]
+-
+-    conn = get_db()
+-    with conn.cursor() as cur:
+-        cur.execute(sql, params_full)
+-        rows = cur.fetchall()
+-
+-    return [
+-        {
+-            "title": r[0],
+-            "category": r[1],
+-            "filename": r[2],
+-            "score": round(float(r[3]), 4),
+-            "excerpt": r[4] or "",
+-        }
+-        for r in rows
+-    ]
+-
+-
+-@mcp.tool()
+-def get_context(filename: str) -> dict:
+-    """
+-    Retrieve full content of a context output by filename.
+-
+-    Args:
+-        filename: The filename (e.g. "01-operational-advisor-diagnostic.md",
+-                  "mybcat-business-context.md", "CLAUDE-UNIVERSAL.md")
+-
+-    Returns:
+-        {title, category, filename, created_date, content_text}
+-    """
+-    conn = get_db()
+-    with conn.cursor() as cur:
+-        cur.execute(
+-            """
+-            SELECT title, category, filename, created_date, content_text
+-            FROM context_outputs
+-            WHERE filename ILIKE %s
+-            LIMIT 1
+-            """,
+-            [f"%{filename}%"],
+-        )
+-        row = cur.fetchone()
+-
+-    if not row:
+-        return {"error": f"No context output found matching: {filename}"}
+-
+-    return {
+-        "title": row[0],
+-        "category": row[1],
+-        "filename": row[2],
+-        "created_date": str(row[3]) if row[3] else None,
+-        "content_text": row[4] or "",
+-    }
+-
+-
+-@mcp.tool()
+-def list_context(category: Optional[str] = None) -> list:
+-    """
+-    List all available context outputs, optionally filtered by category.
+-
+-    Args:
+-        category: Optional — "output", "reference", "prompt", or "rules"
+-
+-    Returns:
+-        List of {title, category, filename, created_date} dicts
+-    """
+-    conditions = []
+-    params = []
+-
+-    if category:
+-        conditions.append("category = %s")
+-        params.append(category)
+-
+-    where = "WHERE " + " AND ".join(conditions) if conditions else ""
+-
+-    sql = f"""
+-        SELECT title, category, filename, created_date
+-        FROM context_outputs
+-        {where}
+-        ORDER BY category, filename
+-    """
+-
+-    conn = get_db()
+-    with conn.cursor() as cur:
+-        cur.execute(sql, params)
+-        rows = cur.fetchall()
+-
+-    return [
+-        {
+-            "title": r[0],
+-            "category": r[1],
+-            "filename": r[2],
+-            "created_date": str(r[3]) if r[3] else None,
+-        }
+-        for r in rows
+-    ]
+-
+-
+ # ─── Auth + ASGI App ─────────────────────────────────────────────────────────
+*** End Patch

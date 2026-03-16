@@ -1,0 +1,8 @@
+[Unit]
+Description=Sync MyBCAT universal guidelines into repo CLAUDE.md and AGENTS.md files
+
+[Service]
+Type=oneshot
+User=ankit114
+ExecStart=/mnt/d_drive/repos/context_nate/mybcat-sync-guidelines.sh
+WorkingDirectory=/mnt/d_drive/repos/context_nate
