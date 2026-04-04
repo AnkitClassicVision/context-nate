@@ -11,6 +11,12 @@ readonly END_MARKER="<!-- MYBCAT-GUIDELINES-END -->"
 created_count=0
 updated_count=0
 replaced_count=0
+skipped_count=0
+
+# Claude Code walks up the directory tree, so /repos/.claude/CLAUDE.md covers all child repos.
+# Only sync AGENTS.md to individual repos (needed by Codex CLI which doesn't walk up).
+# CLAUDE.md is managed solely via /repos/.claude/CLAUDE.md.
+readonly SYNC_AGENTS_ONLY=true
 
 if [[ ! -f "${CANONICAL_GUIDELINES}" ]]; then
   echo "Canonical guidelines file not found: ${CANONICAL_GUIDELINES}" >&2
@@ -111,14 +117,25 @@ process_target_file() {
 }
 
 while IFS= read -r -d '' repo_dir; do
+  repo_name="$(basename "${repo_dir}")"
+
+  # Always skip .claude (it's the parent source of truth)
+  [[ "${repo_name}" == ".claude" ]] && { skipped_count=$((skipped_count + 1)); continue; }
+
   synced_at="$(date '+%Y-%m-%d %H:%M:%S')"
 
-  for filename in CLAUDE.md AGENTS.md; do
-    process_target_file "${repo_dir}/${filename}" "${synced_at}"
-  done
+  if [[ "${SYNC_AGENTS_ONLY}" == "true" ]]; then
+    # Only sync AGENTS.md — CLAUDE.md is inherited from /repos/.claude/CLAUDE.md
+    process_target_file "${repo_dir}/AGENTS.md" "${synced_at}"
+  else
+    for filename in CLAUDE.md AGENTS.md; do
+      process_target_file "${repo_dir}/${filename}" "${synced_at}"
+    done
+  fi
 done < <(find "${REPOS_ROOT}" -mindepth 1 -maxdepth 1 -type d -print0 | sort -z)
 
 echo "MyBCAT guidelines sync complete"
 echo "Created: ${created_count}"
 echo "Updated: ${updated_count}"
 echo "Replaced symlinks: ${replaced_count}"
+echo "Skipped (inherit from parent): ${skipped_count}"
