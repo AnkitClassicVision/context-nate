@@ -1,74 +1,76 @@
 <!-- MYBCAT-GUIDELINES-START -->
 <!-- DO NOT EDIT BETWEEN THESE MARKERS - managed by mybcat-sync-guidelines -->
-<!-- Last synced: 2026-04-02 13:17:47 -->
-## MyBCAT Universal Rules (Lean v2)
-## Red-teamed by Codex HIPAA review 2026-04-02. Grown from real incidents.
+<!-- Last synced: 2026-07-16 19:28:51 -->
+## MyBCAT Universal Rules (Lean v3)
 
-## Outcome
-MyBCAT is a managed back-office and call center service for 30+ U.S. optometry practices.
-We handle PHI (patient names, insurance, call recordings). HIPAA compliance is mandatory.
-Built primarily with AI coding agents (Claude Code). Founder is not a software engineer.
-Revenue: ~$1.3M annualized. 60+ remote Filipino agents. 3-person tech team.
+### Operating context
 
-## Risk Profile
-Single AWS account (no dev/prod separation). All systems are production. PHI-bearing databases and call recordings. Large tables (100K–1.37M rows). Manual deploys only.
+MyBCAT is a managed back-office and call-center service for 30+ U.S. optometry practices. Systems handle PHI, including patient names, insurance data, and call recordings. HIPAA compliance is mandatory. Treat every system as production: there is one AWS account, no dev/prod separation, manual deploys, PHI-bearing stores, and tables ranging from 100K to 1.37M rows.
 
-## Security (HIPAA — non-negotiable)
-- Never log, display, or store PHI (patient names, emails, insurance IDs, phone numbers, payment info) in plaintext.
-- All patient-facing endpoints require Cognito auth with MFA (TOTP minimum). No anonymous access to PHI.
-- Row-level security: users see only their tenant's data.
-- S3 PHI storage requires encryption (KMS preferred). RDS SGs restricted to VPC CIDR.
-- Rate-limit all public API Gateway endpoints. WAF required on public endpoints.
-- Never expose internal tools (n8n, Metabase) to 0.0.0.0/0.
-- No 0.0.0.0/0 ingress on ANY security group — we had 5+ DBs exposed this way.
-- All DB queries use parameterized statements. No string interpolation in SQL.
-- Credentials go in AWS Secrets Manager via `secret-store` CLI. Never in chat, code, comments, or git URLs — agents have leaked credentials in Google Chat before.
-- Never embed GitHub tokens in git remote URLs. Use SSH or credential helpers.
+### HIPAA, access, and secrets
 
-## Infrastructure Safety
-- No security group modifications without explicit approval.
-- No DB migrations without a snapshot. We have no rollback procedures.
-- No DynamoDB Contacts table structure changes without approval (1.37M records, high blast radius).
-- No direct pushes to main on repos with CI/CD. Branch + PR required.
-- No infrastructure deploy without `terraform plan` review first.
-- IaC via Terraform exclusively (no console-created resources).
-- Manual CI/CD trigger only — never auto-deploy to prod.
-- RDS backup retention minimum 35 days. Snapshot before every migration.
-- Bland AI: versioned pathway endpoint only. Edge labels don't persist on non-versioned.
-- Assume production scale. Avoid full-table scans on large tables. Add indexes or justify why none are needed.
-- DynamoDB: use Query with GSI, never Scan on tables >100K items.
+- Never log, display, copy into prompts, or store PHI in plaintext. PHI includes patient names, emails, phone numbers, insurance IDs, payment information, and call recordings.
+- Every patient-facing endpoint must use Cognito authentication with MFA. TOTP is the minimum. Never allow anonymous access to PHI.
+- Enforce tenant isolation on every read and write. A user may access only that user's tenant data.
+- Encrypt PHI in transit and at rest. Use KMS for S3 where possible. Restrict RDS security groups to the VPC CIDR.
+- Rate-limit every public API Gateway endpoint and protect it with WAF.
+- Never expose n8n, Metabase, databases, or any internal tool to `0.0.0.0/0`.
+- `0.0.0.0/0` ingress is banned on every security group. Do not modify a security group without explicit approval.
+- Put credentials in AWS Secrets Manager through the `secret-store` CLI. Never place credentials in chat, prompts, code, comments, logs, commits, or Git URLs.
+- Never embed GitHub tokens in remote URLs. Use SSH or an approved credential helper.
+- Use parameterized SQL for every query. Never interpolate or concatenate input into SQL.
+
+### Infrastructure and data safety
+
+- Infrastructure as code uses Terraform. Do not create infrastructure manually in a cloud console.
+- Do not deploy infrastructure until a human has reviewed `terraform plan` for that exact change.
+- Production deploys and CI/CD triggers are manual. Never enable automatic production deployment.
+- Do not push directly to `main` in a repository with CI/CD. Use a branch and pull request.
+- Snapshot the affected database before every migration. No snapshot means no migration.
+- Keep RDS backup retention at 35 days minimum.
+- Before DELETE, DROP, TRUNCATE, or any security-group change, state the exact target, scope, and intended effect. Wait for explicit approval when the operation is destructive or changes access.
+- The DynamoDB Contacts table has 1.37M records and an exceptional blast radius. Do not change its structure without explicit approval.
+- Never use DynamoDB `Scan` on a table over 100K items. Use `Query` with a suitable partition key or GSI.
+- Avoid full-table reads on large relational tables. Add an index or document why an index is unsafe or unnecessary.
+- For Bland AI, use only the versioned pathway endpoint. Edge labels do not persist on non-versioned pathways.
 - Run CloudFormation drift detection monthly.
 
-## Code Standards (security-relevant)
-- Python: use logging module, not print — print can leak PHI to stdout. Lambda handlers return proper status codes.
-- TypeScript: strict mode — enforces auth/tenant boundary safety.
-- Every API endpoint includes error handling with user-friendly messages. No raw errors to users.
-- All repos must have CI that runs lint + build before merge to main.
+### Code standards
 
-## Working Boundaries
-- If a task will touch more than 3 files, propose a plan and wait for approval.
-- Before destructive operations (DELETE, DROP, TRUNCATE, SG changes), state what you're about to do.
-- Fresh session per logical task — prevents cross-client PHI context bleed.
-- If working more than 5 minutes without results, stop and reassess.
+- Python uses the `logging` module, not `print`. Logs must exclude PHI, secrets, and raw request bodies. Lambda handlers return appropriate status codes.
+- TypeScript runs in strict mode. Do not weaken strictness to bypass type or authorization errors.
+- Every API endpoint has explicit error handling and a user-safe response. Never return raw errors, stack traces, secrets, or internal identifiers.
+- CI must run lint and build checks before merge to `main`.
+- Preserve authentication, authorization, tenant boundaries, encryption, retention, audit logging, and rollback behavior during refactors.
 
-## Response Quality Rules
-- Say "I don't know" when uncertain. Do not guess, fabricate, or speculate without actual knowledge.
-- Verify with citations. Back up factual claims with sources — documentation links, file paths, line numbers, or command output.
-- Use direct quotes for factual grounding. Quote relevant text directly from code, docs, or sources rather than paraphrasing.
+### Working boundaries
 
-## Available Tools
-- AWS MCP (102 read-only tools for infrastructure inspection)
-- MyBCAT Ops MCP (1,126 docs, operational knowledge)
-- MyBCAT Playbook MCP (security audits, procedures, onboarding)
-- GitHub (CI/CD, repos, PRs)
-- Terraform (infrastructure management)
-- `secret-store` CLI (secrets management)
+- If a task will modify more than 3 files, present a short plan naming the files, risks, and verification, then wait for approval.
+- Use a fresh session for each logical task to reduce cross-client PHI context bleed.
+- If five minutes of work produces no evidence of progress, stop, reassess the premise, and report the blocker.
+- Assume production scale and choose the smallest reversible change.
+- Do not claim completion from code inspection alone. Run the relevant lint, build, test, plan, or read-only verification and report the actual result.
 
-## Full Operational Playbook
-For deeper context beyond these rules, query the **mybcat-playbook MCP** (`search_playbook`, `get_playbook_doc`, `list_playbook`):
-- Security audit with findings, remediation steps, and fix prompts
-- Business context: clients, team, services, tech stack, compliance posture
-- Task decomposition templates for safely making risky changes
-- Engineer onboarding briefing for new contractors or team members
-- Nate's operational frameworks: blast radius discipline, scar tissue rules, 80-20 threshold
+### Response quality
+
+- Say when evidence is missing. Do not guess or fabricate.
+- Ground factual claims in the most direct available evidence: command output, file path and line, official documentation, or a short relevant quote.
+- Lead with the result. State changed scope, verification, remaining risk, and one useful next action.
+- Keep routine execution concise. Expand when security, HIPAA, data loss, production impact, or human approval is involved.
+
+### Available tools and playbook
+
+- AWS MCP: read-only infrastructure inspection.
+- MyBCAT Ops MCP: operational documentation.
+- MyBCAT Playbook MCP: security audits, procedures, and onboarding.
+- GitHub: repositories, CI/CD, and pull requests.
+- Terraform: infrastructure planning and management.
+- `secret-store`: approved secret management CLI.
+
+For security procedures, business context, risky-change decomposition, onboarding, and operational frameworks, query the MyBCAT Playbook MCP with `search_playbook`, `get_playbook_doc`, or `list_playbook`.
+
+### Load-later operating model
+
+For planning, strategy, prioritization, or burnout topics, load `/mnt/d_drive/repos/context_nate/outputs/operating-model-reference.md` before recommending action.
+Do not load that reference for routine coding, tests, builds, narrow fixes, or status checks.
 <!-- MYBCAT-GUIDELINES-END -->

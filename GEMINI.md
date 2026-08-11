@@ -1,3 +1,6 @@
+<!-- MYBCAT-GUIDELINES-START -->
+<!-- DO NOT EDIT BETWEEN THESE MARKERS - managed by mybcat-sync-guidelines -->
+<!-- Last synced: 2026-07-16 19:28:51 -->
 ## MyBCAT Universal Rules (Lean v3)
 
 ### Operating context
@@ -70,3 +73,5 @@ For security procedures, business context, risky-change decomposition, onboardin
 
 For planning, strategy, prioritization, or burnout topics, load `/mnt/d_drive/repos/context_nate/outputs/operating-model-reference.md` before recommending action.
 Do not load that reference for routine coding, tests, builds, narrow fixes, or status checks.
+<!-- MYBCAT-GUIDELINES-END -->
+
